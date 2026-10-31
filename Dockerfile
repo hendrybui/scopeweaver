@@ -21,14 +21,26 @@ COPY --from=frontend /src/web/out/ ./server/webui/dist/
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -tags embedui -trimpath \
     -ldflags "-s -w -X main.version=${VERSION}" -o /scopeweaver ./cmd/artex
 
+# CLI only; the daemon stays on the host and is reached through the socket.
+FROM docker:27-cli AS dockercli
+
 FROM python:3.12-slim-bookworm
 # Runtime tools and Node 20 for Playwright. Browser installation occurs at build time.
+# java and ruby exist because host tool trees wrap them (ghidra, ZAP, burpsuite,
+# metasploit, beef, evil-winrm); the lib* entries are host binaries that failed
+# with "error while loading shared libraries" when resolved through the mounts.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates ripgrep curl wget vim git jq unzip \
       dnsutils iputils-ping netcat-openbsd inetutils-telnet whois nmap \
+      iproute2 procps psmisc lsof \
+      openjdk-17-jre-headless ruby-full \
+      libgomp1 libminizip1 libpcap0.8 liblua5.4-0 \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
+# Docker CLI + compose plugin, so host stacks can be driven from inside.
+COPY --from=dockercli /usr/local/bin/docker /usr/local/bin/docker
+COPY --from=dockercli /usr/local/libexec/docker/cli-plugins/ /usr/local/libexec/docker/cli-plugins/
 RUN npm install -g @playwright/mcp@latest @playwright/cli@latest playwright@latest \
     && playwright-cli --help \
     && playwright install --with-deps chromium \
