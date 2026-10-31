@@ -18,6 +18,7 @@
 - [ScopeSentry MCP 指南](skills/scopesentry.md)
 - [API 偵察指南](skills/api-recon.md)與[參考](skills/api-recon-reference.md)
 - [Playwright CLI 指南](skills/playwright-cli/README.md)
+- [主機工具目錄指引](skills/pandora-tools.md)
 - [上游變更歷史](../../CHANGELOG.md)
 
 英文技能檔仍為可執行的技能入口。`docs/{ko,zh-Hans,zh-Hant,ja,es}/skills` 中的翻譯副本僅供參考，不會註冊額外技能。六種語言皆保留程式識別碼、指令與相容模式的原始拼寫。

@@ -15,6 +15,7 @@
 - [ScopeSentry MCP 안내](skills/scopesentry.md)
 - [API 조사 안내](skills/api-recon.md) 및 [참고서](skills/api-recon-reference.md)
 - [Playwright CLI 안내](skills/playwright-cli/README.md)
+- [호스트 도구 트리 안내](skills/pandora-tools.md)
 - [원본 변경 기록](../../CHANGELOG.ko.md)
 
 실행 가능한 스킬 진입점은 영어 파일로 유지합니다. `docs/{ko,zh-Hans,zh-Hant,ja,es}/skills`의 번역 사본은 참고 문서이며 스킬을 중복 등록하지 않습니다. 코드 식별자, 명령, 호환성 패턴은 여섯 언어 모두 원래 표기를 유지합니다.

@@ -16,6 +16,7 @@
 - [ScopeSentry MCP のガイド](skills/scopesentry.md)
 - [API 偵察ガイド](skills/api-recon.md)と[参照資料](skills/api-recon-reference.md)
 - [Playwright CLI ガイド](skills/playwright-cli/README.md)
+- [ホストツールツリーの手引き](skills/pandora-tools.md)
 - [上流の変更履歴](../../CHANGELOG.md)
 
 英語のスキルファイルが、引き続き実行用のエントリーです。`docs/{ko,zh-Hans,zh-Hant,ja,es}/skills` の翻訳版は参照用のドキュメントで、追加のスキルとして登録しません。コードの識別子、コマンド、互換性のためのパターンは、6 言語すべてで元の表記を保持します。

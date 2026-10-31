@@ -14,6 +14,7 @@
 - [Indicaciones MCP de ScopeSentry](skills/scopesentry.md)
 - [Indicaciones de reconocimiento de API](skills/api-recon.md) y [referencia](skills/api-recon-reference.md)
 - [Indicaciones de Playwright CLI](skills/playwright-cli/README.md)
+- [Guía del árbol de herramientas del host](skills/pandora-tools.md)
 - [Historial de cambios original](../../CHANGELOG.md)
 
 Los archivos ingleses de habilidades siguen siendo las entradas ejecutables. Las copias traducidas de `docs/{ko,zh-Hans,zh-Hant,ja,es}/skills` son documentación de referencia y no registran habilidades adicionales. Los identificadores de código, comandos y patrones de compatibilidad conservan su escritura original en los seis idiomas.

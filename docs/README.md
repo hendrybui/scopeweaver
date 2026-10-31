@@ -14,6 +14,7 @@ English · [한국어](ko/README.md) · [简体中文](zh-Hans/README.md) · [�
 - [ScopeSentry MCP guidance](../skills/scopesentry/SKILL.md)
 - [API reconnaissance guidance](../skills/api-recon/SKILL.md) and [reference](../skills/api-recon/reference.md)
 - [Playwright CLI guidance](../skills/playwright-cli/SKILL.md)
+- [Host tool tree guidance](../skills/pandora-tools/SKILL.md)
 - [Upstream change history](../CHANGELOG.md)
 
 English skill files remain the executable skill entries. Translated copies under `docs/{ko,zh-Hans,zh-Hant,ja,es}/skills` are reference documentation and do not register additional skills. Code identifiers, commands and compatibility patterns keep their original spelling in all six languages.
