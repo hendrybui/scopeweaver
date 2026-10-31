@@ -51,6 +51,23 @@ only host-specific sonames are appended. That is what turned hydra, tshark, nmap
 hashcat, john, aircrack-ng, medusa, tcpdump and smbclient from
 `error while loading shared libraries` into working commands.
 
+## Host sockets are NOT reachable by default
+
+`ufw` runs with `INPUT policy DROP`, so a container can only reach host ports that
+Docker published itself (that is why `host.docker.internal:<published>` works and
+nothing else does). Services bound to the host's **loopback** are doubly
+unreachable: the bridge gateway is not `127.0.0.1`.
+
+Consequences and the two fixes used here:
+
+| Host-only service | Reachable? | Fix |
+| --- | --- | --- |
+| `9router` on `127.0.0.1:20128` (LLM router) | no | user unit `9router-relay.service` = `socat TCP-LISTEN:20129,fork,reuseaddr,bind=0.0.0.0 TCP:127.0.0.1:20128`, plus `ufw allow from 172.16.0.0/12 to any port 20129 proto tcp`. From a container use `http://host.docker.internal:20129/v1` |
+| host `ollama` on `127.0.0.1:11434` | no | use the `ollama` container on this network instead: `http://ollama:11434` |
+| `llama-swap` on `127.0.0.1:8081` | no | needs its own relay or `OLLAMA_HOST`/bind change |
+
+The 9router client key lives in `~/.9router/db/data.sqlite` (`apiKeys`).
+
 ## Rules
 
 - Mounts are at parity because the entries are shims: never copy or relocate one.
