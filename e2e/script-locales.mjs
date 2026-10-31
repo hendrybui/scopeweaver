@@ -9,7 +9,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { SUPPORTED_LANGUAGES } from '../adapters/agent/src/client.js';
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const scripts = ['install.sh', 'build.sh', 'start.sh', 'update.sh', 'reset-password.sh', 'dev.sh'];
+const scripts = ['install.sh', 'build.sh', 'start.sh', 'update.sh', 'reset-password.sh', 'dev.sh', 'rotate-db-password.sh'];
 const languages = JSON.parse(readFileSync(join(repo, 'locale/definitions.json'))).locales;
 assert.deepEqual([...SUPPORTED_LANGUAGES], languages.map(language => language.id), 'standalone adapter must agree with the shipped registry');
 const vectors = JSON.parse(readFileSync(join(repo, 'locale/matching-vectors.json'))).vectors;

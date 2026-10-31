@@ -651,7 +651,7 @@ ScopeWeaver is derived from [Autumn-27/ARTEX](https://github.com/Autumn-27/ARTEX
   the `ARTEX_*` config/env keys, and the `artex` database defaults are **kept** for compatibility.
 - **Documentation language**: English is the default; maintained user/contributor guides have Korean,
   Simplified Chinese, Traditional Chinese, Japanese and Spanish counterparts linked from each guide.
-- **Script language**: setup/build/start/update/reset-password/dev prompts default to English;
+- **Script language**: setup/build/start/update/reset-password/rotate-db-password/dev prompts default to English;
   `SCOPEWEAVER_LANGUAGE` (`ARTEX_LANGUAGE` also works) selects `en`, `ko`, `zh-Hans`, `zh-Hant`,
   `ja` or `es`. No network translation is used.
 - **Distribution**: the output binary is `scopeweaver`, release archives are
