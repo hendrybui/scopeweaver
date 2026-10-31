@@ -204,6 +204,7 @@ var builtinAgents = []builtinAgent{
 	{"auto", "Auto", "assistant", "Platform assistant: manage tasks (create, inspect, pause, hint) and assets, and create or edit skills, custom tools, and MCP servers.", nil, false, nil},
 	// The standalone penetration-testing agent handles reconnaissance through wrap-up via chat, planning, executing, and validating independently. Interactive shell is enabled by default.
 	{"pentest", "Penetration testing", "assistant", "Independent penetration-testing agent: handles reconnaissance, attack-surface discovery, exploitation, verification, and wrap-up with its own planning, execution, and adversarial validation.", nil, true, intp(0)},
+	{"hexsecgpt", "HexSecGPT", "assistant", "Unorthodox operator: evidence-first hacking mindset, environment-literate with the host tool tree and the MCP arsenal, adversarial verification before every claim.", nil, true, intp(0)},
 }
 
 // seedBuiltins inserts built-ins and updates only exact bundled metadata defaults.
@@ -268,6 +269,11 @@ ON CONFLICT (name) DO NOTHING`,
 	if err := d.seedBuiltinSkillVisibility(); err != nil {
 		return locale.Errorf("seed skill visibility: %w", err)
 	}
+	// The agent's MCP gateway is user data (host-specific URL + token), so bind it
+	// by name whenever the agent exists — a re-created agent keeps its arsenal.
+	if err := d.seedAgentMCPBindings("hexsecgpt", "bolt"); err != nil {
+		return err
+	}
 	if err := d.seedDefaultInterceptRules(); err != nil {
 		return locale.Errorf("seed intercept rules: %w", err)
 	}
@@ -320,8 +326,9 @@ ON CONFLICT DO NOTHING`, r.kind, r.pattern, r.note); err != nil {
 // declares `mcps: ScopeSentry`, which only takes effect once it's made visible and
 // that MCP is enabled/configured.
 var builtinSkillVisibility = map[string][]string{
-	"api-recon":     {"auto", "pentest", "worker"},
-	"pandora-tools": {"auto", "pentest", "worker"},
+	"api-recon":      {"auto", "pentest", "worker", "hexsecgpt"},
+	"pandora-tools":  {"auto", "pentest", "worker", "hexsecgpt"},
+	"playwright-cli": {"hexsecgpt"},
 }
 
 // seedBuiltinSkillVisibility binds the shipped built-in skills to their default
