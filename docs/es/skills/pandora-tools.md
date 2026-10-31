@@ -1,54 +1,59 @@
-# Guía del árbol de herramientas del host
+# Herramientas del host
 
 [English](../../../skills/pandora-tools/SKILL.md) · [한국어](../../ko/skills/pandora-tools.md) · [简体中文](../../zh-Hans/skills/pandora-tools.md) · [繁體中文](../../zh-Hant/skills/pandora-tools.md) · [日本語](../../ja/skills/pandora-tools.md) · Español
 
-El disco de herramientas del host se monta en este contenedor en la **misma ruta absoluta** (`/mnt/Pandora`), de modo que las rutas absolutas escritas en el host —shebangs de venv, archivos de configuración, argumentos de scripts— siguen funcionando aquí. Si `/mnt/Pandora` no existe, esta implementación no exporta un disco de herramientas; use solo las herramientas de `$PATH`.
+Las herramientas del host están montadas aquí. Casi todo "binario" del host es un shim, un enlace simbólico o el punto de entrada de un venv cuyo shebang o destino es una ruta absoluta del host, así que cada directorio se monta en su **ruta original**: no copie ni mueva ninguno.
 
-## 1. Empiece aquí
+## 1. Dónde están las herramientas
 
 ```sh
-ls /mnt/Pandora          # áreas de herramientas del host
-ls /mnt/Pandora/Hack     # árbol de herramientas ofensivas, si existe
+ls /host/bin                 # ~276 shims del host; encabeza PATH
+ls /home/neocyan/.local/bin  # ~305 shims de usuario
+ls /opt                      # ~36 árboles (burpsuite, ghidra, ZAP, metasploit, beef, recon-ng, …)
+ls /mnt/Pandora/Hack         # árbol de herramientas ofensivas
+command -v <tool>            # 470+ nombres ya resuelven en PATH: compruebe antes de asumir
 ```
 
-Áreas vistas en `/mnt/Pandora/Hack` en este tipo de implementación: `Alien`, `BruteForceAI`, `DARKFLY`, `Hackagent`, `Hexsec`, `Red`, `scanner`, `wifi`, `evilginx2`, `gophish` (binario), `gophish.db`, `hexscan.py`, `results/`.
+`PATH` empieza por los directorios de shims del host y luego las rutas de la imagen. Que algo no esté en `/mnt/Pandora` no significa que falte en este contenedor.
 
 ## 2. Ejecutar correctamente una herramienta basada en venv
 
-Use el intérprete propio del venv. Su punto de entrada se resuelve a un 3.12 coincidente dentro de este contenedor, así que los site-packages del venv se importan:
+Los venv del host son 3.12, 3.11, 3.10 y 3.14. El `bin/python` de un venv pasa por `/usr/bin/python3`, así que **use el punto de entrada con versión** cuando exista; si no, el intérprete no coincidirá con los site-packages del venv:
 
 ```sh
-/mnt/Pandora/Hack/BruteForceAI/.venv/bin/python /mnt/Pandora/Hack/BruteForceAI/BruteForceAI.py --help
+/mnt/Pandora/Hack/BruteForceAI/.venv/bin/python tool.py      # venv 3.12: la entrada simple sirve
+/mnt/Pandora/Open-Webui-data/.venv/bin/python3.11 tool.py    # otras versiones: bin/python<ver>
 ```
 
-Entre al directorio de la herramienta cuando cargue datos por ruta relativa: `gophish` abre `./VERSION` y termina si no lo hace:
+Entre al directorio de la herramienta cuando lea archivos por ruta relativa: `gophish` abre `./VERSION` y termina si no. Si un venv sigue sin importar, evite su punto de entrada:
 
 ```sh
-cd /mnt/Pandora/Hack && ./gophish
+PYTHONPATH=<venv>/lib/python<ver>/site-packages /usr/local/bin/python3.12 tool.py
 ```
 
-Si un venv sigue sin importar (venv creado para otra versión menor), evite su punto de entrada:
+Los módulos pip del host son legibles en `/usr/local/lib/python3.12/dist-packages` (se añade al final de `sys.path`, así que los paquetes de la imagen ganan).
 
-```sh
-PYTHONPATH=<venv>/lib/python3.12/site-packages /usr/local/bin/python3.12 tool.py
-```
+## 3. Prefiera la puerta de enlace MCP si la ruta local es hostil
 
-Disponible aquí: python3.12, node 20, nmap, dig, whois, curl, wget, jq, git, ripgrep, telnet, netcat. Los paquetes pip del host son legibles en `/usr/local/lib/python3.12/dist-packages` (montaje de solo lectura). **No** disponible: los escáneres Go de `/usr/local/bin` del host, la CLI de `docker` ni el socket de Docker: dentro de este contenedor `docker ...` falla.
-
-## 3. Prefiera la puerta de enlace MCP si el binario no es local
-
-Los binarios que solo existen en el host se ejecutan dentro de la puerta de enlace MCP `bolt`; llame a las herramientas `mcp__bolt__*` en lugar de invocar el shell:
+Los binarios de `/usr/bin` y `/usr/sbin` del host no están en `PATH` por defecto: están compilados contra una glibc más nueva que esta imagen. La mayoría ya se expone como herramientas MCP de `bolt`:
 
 ```
-mcp__bolt__dnsx_dnsx_resolve   mcp__bolt__httpx        mcp__bolt__ffuf
-mcp__bolt__masscan_*           mcp__bolt__sqlmap_*     mcp__bolt__hydra_hydra
-mcp__bolt__rustscan_*          mcp__bolt__wpscan_*     mcp__bolt__hashcat_crack
-mcp__bolt__impacket_kerberoast mcp__bolt__gobuster_dir mcp__bolt__scoutsuite_*
+mcp__bolt__masscan_*  mcp__bolt__hydra_hydra  mcp__bolt__john_*  mcp__bolt__hashcat_crack
+mcp__bolt__gobuster_dir  mcp__bolt__sslscan_*  mcp__bolt__sqlmap_*  mcp__bolt__wpscan_*
+mcp__bolt__dnsx_dnsx_resolve  mcp__bolt__httpx  mcp__bolt__ffuf  mcp__bolt__impacket_kerberoast
 ```
 
-## 4. Trampas
+Si un nombre falta localmente pero está arriba, llame a la herramienta `mcp__bolt__*` en lugar de buscar el binario.
 
-- Las escrituras quedan con propietario **root** en el host: este contenedor corre como root. Prefiera `/mnt/Pandora/Hack/results/` o `/app/data` para la salida y avise cuando una herramienta escriba a su lado.
-- `/mnt/Pandora/docker-lib` es el **directorio de datos de Docker** del host (todas las capas overlay). Limite las búsquedas a `/mnt/Pandora/<área>` en lugar de todo el árbol.
-- El montaje es de lectura y escritura. No borre ni mueva herramientas del host; repórtelo.
-- Nada se copia a la imagen: el montaje es la única razón de que estas rutas existan. Los archivos que una herramienta escribe a su lado sobreviven al contenedor.
+## 4. Lo que aún necesita un runtime
+
+- Sin CLI `docker` ni socket de Docker → los ~24 Dockerfiles y 18 stacks compose del host (`Workshop/HexSecTempest`, `Web_image/*`, …) no se pueden iniciar desde dentro.
+- Sin `java` → ghidra, ZAP, burpsuite. Sin `ruby` → metasploit, beef, evil-winrm, wpscan.
+- Un envoltorio sobre esos runtimes falla por intérprete ausente: repórtelo, no reintente a ciegas.
+
+## 5. Trampas
+
+- El contenedor corre como root: lo que escriba en `/mnt/Pandora` queda con propietario root en el host. Use `/mnt/Pandora/Hack/results/` o `/app/data`.
+- `/mnt/Pandora/docker-lib` es el directorio de datos de Docker del host: limite las búsquedas.
+- Todo salvo `/mnt/Pandora` es de solo lectura.
+- `error while loading shared libraries` significa que falta una biblioteca del host no montada: use el equivalente MCP o repórtelo.

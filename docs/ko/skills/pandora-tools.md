@@ -1,54 +1,59 @@
-# 호스트 도구 트리 안내
+# 호스트 도구 안내
 
 [English](../../../skills/pandora-tools/SKILL.md) · 한국어 · [简体中文](../../zh-Hans/skills/pandora-tools.md) · [繁體中文](../../zh-Hant/skills/pandora-tools.md) · [日本語](../../ja/skills/pandora-tools.md) · [Español](../../es/skills/pandora-tools.md)
 
-호스트 도구 디스크는 컨테이너 안에서 **동일한 절대 경로**(`/mnt/Pandora`)로 바인드 마운트됩니다. 따라서 호스트에서 작성한 절대 경로(venv shebang, 설정 파일, 스크립트 인자)가 그대로 동작합니다. `/mnt/Pandora`가 없으면 이 배포 환경이 호스트 도구 디스크를 내보내지 않는 것이므로 `$PATH` 도구만 사용합니다.
+호스트의 도구 모음이 이 컨테이너에 바인드 마운트되어 있습니다. 호스트의 "바이너리"는 대부분 shim, 심볼릭 링크, venv 진입점이며 shebang이나 대상이 절대 호스트 경로입니다. 그래서 각 디렉터리를 **원래 경로**에 마운트합니다. 복사하거나 옮기면 깨집니다.
 
-## 1. 먼저 확인
+## 1. 도구가 있는 위치
 
 ```sh
-ls /mnt/Pandora          # 호스트 도구 영역
-ls /mnt/Pandora/Hack     # 있다면 공격 도구 트리
+ls /host/bin                 # 호스트 shim 약 276개, PATH 선두
+ls /home/neocyan/.local/bin  # 사용자 수준 도구 shim 약 305개
+ls /opt                      # 도구 트리 약 36개 (burpsuite, ghidra, ZAP, metasploit, beef, recon-ng 등)
+ls /mnt/Pandora/Hack         # 공격 도구 트리
+command -v <tool>            # 이미 PATH에서 470개 이상이 해석됩니다. 없다고 단정하기 전에 확인하세요
 ```
 
-이런 배포에서 `/mnt/Pandora/Hack` 아래에서 볼 수 있는 항목: `Alien`, `BruteForceAI`, `DARKFLY`, `Hackagent`, `Hexsec`, `Red`, `scanner`, `wifi`, `evilginx2`, `gophish`(바이너리), `gophish.db`, `hexscan.py`, `results/`.
+`PATH`는 호스트 shim 디렉터리들로 시작하고 그 뒤에 이미지 자체 경로가 옵니다. `/mnt/Pandora`에 없다고 해서 이 컨테이너에 없다는 뜻은 아닙니다.
 
 ## 2. venv 기반 도구를 올바르게 실행
 
-venv 자체 인터프리터를 사용합니다. 이 컨테이너 안에서 진입점이 동일한 3.12로 해석되므로 venv의 site-packages가 임포트됩니다:
+호스트 venv는 3.12, 3.11, 3.10, 3.14로 만들어졌습니다. venv의 `bin/python`은 `/usr/bin/python3`을 거치므로 **버전이 붙은 진입점**을 사용하세요. 그렇지 않으면 인터프리터가 venv의 site-packages와 맞지 않습니다:
 
 ```sh
-/mnt/Pandora/Hack/BruteForceAI/.venv/bin/python /mnt/Pandora/Hack/BruteForceAI/BruteForceAI.py --help
+/mnt/Pandora/Hack/BruteForceAI/.venv/bin/python tool.py      # 3.12 venv: 일반 진입점으로 충분
+/mnt/Pandora/Open-Webui-data/.venv/bin/python3.11 tool.py    # 다른 버전: bin/python<버전>
 ```
 
-도구가 상대 경로로 데이터를 읽으면 먼저 해당 디렉터리로 이동합니다. `gophish`는 `./VERSION`을 열기 때문에 그렇지 않으면 종료됩니다:
+도구가 상대 경로로 파일을 읽으면 해당 디렉터리로 이동하세요. `gophish`는 `./VERSION`을 열지 못하면 종료합니다. 그래도 임포트가 안 되면 진입점을 우회합니다:
 
 ```sh
-cd /mnt/Pandora/Hack && ./gophish
+PYTHONPATH=<venv>/lib/python<버전>/site-packages /usr/local/bin/python3.12 tool.py
 ```
 
-다른 마이너 버전용으로 만들어진 venv라서 임포트가 계속 실패하면 진입점을 우회합니다:
+호스트 전역 pip 모듈은 `/usr/local/lib/python3.12/dist-packages`에서 읽을 수 있습니다(`sys.path` 뒤에 추가되므로 이미지 패키지가 우선합니다).
 
-```sh
-PYTHONPATH=<venv>/lib/python3.12/site-packages /usr/local/bin/python3.12 tool.py
-```
+## 3. 로컬 경로가 까다로우면 MCP 게이트웨이를 우선
 
-여기에서 사용 가능: python3.12, node 20, nmap, dig, whois, curl, wget, jq, git, ripgrep, telnet, netcat. 호스트 전역 pip 패키지는 `/usr/local/lib/python3.12/dist-packages`에서 읽을 수 있습니다(읽기 전용 마운트). 사용 **불가**: 호스트의 `/usr/local/bin` Go 스캐너, `docker` CLI, Docker 소켓 — 이 컨테이너 안에서 `docker ...`는 실패합니다.
-
-## 3. 바이너리가 로컬에 없으면 MCP 게이트웨이를 우선
-
-호스트에만 있는 도구 바이너리는 `bolt` MCP 게이트웨이 안에서 실행됩니다. 셸로 부르는 대신 `mcp__bolt__*` 도구를 호출합니다:
+호스트의 `/usr/bin`과 `/usr/sbin` 바이너리는 기본 PATH에 없습니다. 이 이미지보다 최신 glibc로 빌드되었기 때문입니다. 대부분은 이미 `bolt` MCP 도구로 노출되어 있습니다:
 
 ```
-mcp__bolt__dnsx_dnsx_resolve   mcp__bolt__httpx        mcp__bolt__ffuf
-mcp__bolt__masscan_*           mcp__bolt__sqlmap_*     mcp__bolt__hydra_hydra
-mcp__bolt__rustscan_*          mcp__bolt__wpscan_*     mcp__bolt__hashcat_crack
-mcp__bolt__impacket_kerberoast mcp__bolt__gobuster_dir mcp__bolt__scoutsuite_*
+mcp__bolt__masscan_*  mcp__bolt__hydra_hydra  mcp__bolt__john_*  mcp__bolt__hashcat_crack
+mcp__bolt__gobuster_dir  mcp__bolt__sslscan_*  mcp__bolt__sqlmap_*  mcp__bolt__wpscan_*
+mcp__bolt__dnsx_dnsx_resolve  mcp__bolt__httpx  mcp__bolt__ffuf  mcp__bolt__impacket_kerberoast
 ```
 
-## 4. 함정
+로컬에 없지만 위에 있는 이름은 바이너리를 찾지 말고 `mcp__bolt__*` 도구를 호출하세요.
 
-- 이 컨테이너는 root로 실행되므로 호스트에 쓰는 파일은 **root 소유**가 됩니다. 출력은 `/mnt/Pandora/Hack/results/` 또는 `/app/data`를 권장하고, 도구가 자기 옆에 파일을 쓰면 이를 알립니다.
-- `/mnt/Pandora/docker-lib`는 호스트의 **Docker 데이터 루트**(모든 overlay 레이어)입니다. 전체 트리 대신 `/mnt/Pandora/<영역>`으로 검색 범위를 좁힙니다.
-- 마운트는 읽기/쓰기입니다. 호스트 도구를 삭제하거나 옮기지 말고 보고합니다.
-- 이미지에 복사된 것은 없습니다. 마운트가 이 경로들의 유일한 이유이며, 도구가 스스로 옆에 쓰는 파일은 컨테이너보다 오래 남습니다.
+## 4. 아직 런타임이 필요한 것
+
+- `docker` CLI와 Docker 소켓이 없습니다 → 호스트의 Dockerfile 약 24개와 compose 스택 18개(`Workshop/HexSecTempest`, `Web_image/*` 등)는 안에서 시작할 수 없습니다.
+- `java` 없음 → ghidra, ZAP, burpsuite. `ruby` 없음 → metasploit, beef, evil-winrm, wpscan.
+- 위 런타임을 감싼 래퍼는 인터프리터 없음으로 실패합니다. 보고하고 무작정 재시도하지 마세요.
+
+## 5. 함정
+
+- 이 컨테이너는 root로 실행되므로 `/mnt/Pandora`에 쓴 파일은 호스트에서 root 소유가 됩니다. 출력은 `/mnt/Pandora/Hack/results/` 또는 `/app/data`를 사용하세요.
+- `/mnt/Pandora/docker-lib`는 호스트의 Docker 데이터 루트입니다. 검색 범위를 하위 디렉터리로 좁히세요.
+- `/mnt/Pandora`를 제외하면 모두 읽기 전용입니다.
+- `error while loading shared libraries`는 마운트되지 않은 호스트 라이브러리가 필요하다는 뜻입니다. MCP 대응 도구를 쓰거나 보고하세요.

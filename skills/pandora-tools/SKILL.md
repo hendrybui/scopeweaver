@@ -1,59 +1,66 @@
 ---
 name: pandora-tools
-description: Use when a task needs a tool that lives on the host tool tree under /mnt/Pandora (host-installed scanners, venv-based Python tools, gophish, evilginx) or on the host MCP gateway (mcp__bolt__*). Covers what is mounted, how to run it, and the traps.
+description: Use when a task needs a tool that lives on the host — the host tool tree under /mnt/Pandora, the host shim homes (/host/bin, ~/.local/bin, /opt, pipx venvs) or the host MCP gateway (mcp__bolt__*). Covers where things are, how to run them, and what still needs a runtime.
 ---
 
-# Host tool tree
+# Host tooling
 
 English · [한국어](../../docs/ko/skills/pandora-tools.md) · [简体中文](../../docs/zh-Hans/skills/pandora-tools.md) · [繁體中文](../../docs/zh-Hant/skills/pandora-tools.md) · [日本語](../../docs/ja/skills/pandora-tools.md) · [Español](../../docs/es/skills/pandora-tools.md)
 
-The host tool disk is bind-mounted into this container at the **same absolute path** (`/mnt/Pandora`), so absolute paths written on the host — venv shebangs, config files, script arguments — keep working here. If `/mnt/Pandora` does not exist, this deployment does not export a host tool disk; use `$PATH` tools only.
+The host's tooling is bind-mounted here. Almost every host "binary" is a shim, a symlink or a venv entry point whose shebang or target is an absolute host path, so each directory is mounted at its **original path**: never copy or relocate one.
 
-## 1. Start here
+## 1. Where tools are
 
 ```sh
-ls /mnt/Pandora          # host tool areas
-ls /mnt/Pandora/Hack     # offensive toolkit tree, if present
+ls /host/bin                 # ~276 host shims; leads PATH
+ls /home/neocyan/.local/bin  # ~305 user-level tool shims
+ls /opt                      # ~36 tool trees (burpsuite, ghidra, ZAP, metasploit, beef, recon-ng, …)
+ls /mnt/Pandora/Hack         # offensive toolkit tree
+command -v <tool>            # 470+ names already resolve on PATH — check before assuming
 ```
 
-Areas seen under `/mnt/Pandora/Hack` in this style of deployment: `Alien`, `BruteForceAI`, `DARKFLY`, `Hackagent`, `Hexsec`, `Red`, `scanner`, `wifi`, `evilginx2`, `gophish` (binary), `gophish.db`, `hexscan.py`, `results/`.
+`PATH` leads with the host shim directories, then the image's own paths. A tool missing from `/mnt/Pandora` is not necessarily missing from this container.
 
 ## 2. Run a venv-based tool correctly
 
-Use the venv's own interpreter. Its entry point resolves to a matching 3.12 inside this container, so the venv's site-packages import:
+Host venvs are built on 3.12, 3.11, 3.10 and 3.14. A venv's `bin/python` goes through `/usr/bin/python3`, so **use the versioned entry point** when one exists, otherwise the interpreter will not match the venv's site-packages:
 
 ```sh
-/mnt/Pandora/Hack/BruteForceAI/.venv/bin/python /mnt/Pandora/Hack/BruteForceAI/BruteForceAI.py --help
+/mnt/Pandora/Hack/BruteForceAI/.venv/bin/python tool.py      # 3.12 venv: plain entry is fine
+/mnt/Pandora/Open-Webui-data/.venv/bin/python3.11 tool.py    # other versions: bin/python<ver>
 ```
 
-`cd` into the tool's directory first when it loads data by relative path — `gophish` opens `./VERSION` and dies otherwise:
+`cd` into a tool's directory when it reads files by relative path — `gophish` opens `./VERSION` and dies otherwise. If a venv still cannot import, bypass its entry point:
 
 ```sh
-cd /mnt/Pandora/Hack && ./gophish
+PYTHONPATH=<venv>/lib/python<ver>/site-packages /usr/local/bin/python3.12 tool.py
 ```
 
-If a venv still cannot import (a venv built for another minor version), bypass its entry point:
+Host-wide pip modules are readable at `/usr/local/lib/python3.12/dist-packages` (appended to `sys.path`, so image packages win).
 
-```sh
-PYTHONPATH=<venv>/lib/python3.12/site-packages /usr/local/bin/python3.12 tool.py
-```
+## 3. Prefer the MCP gateway when the local path is hostile
 
-Available here: python3.12, node 20, nmap, dig, whois, curl, wget, jq, git, ripgrep, telnet, netcat. Host-wide pip packages are readable at `/usr/local/lib/python3.12/dist-packages` (read-only mount). **Not** available: the host's `/usr/local/bin` Go scanners, the `docker` CLI and the Docker socket — a `docker ...` call inside this container fails.
-
-## 3. Prefer the MCP gateway when the binary is not local
-
-Tool binaries that exist only on the host run inside the `bolt` MCP gateway; call the `mcp__bolt__*` tools instead of shelling out:
+The host's `/usr/bin` and `/usr/sbin` binaries are not on `PATH` by default — they are built against a newer glibc than this image. Most of them are already exposed as `bolt` MCP tools:
 
 ```
-mcp__bolt__dnsx_dnsx_resolve   mcp__bolt__httpx        mcp__bolt__ffuf
-mcp__bolt__masscan_*           mcp__bolt__sqlmap_*     mcp__bolt__hydra_hydra
-mcp__bolt__rustscan_*          mcp__bolt__wpscan_*     mcp__bolt__hashcat_crack
-mcp__bolt__impacket_kerberoast mcp__bolt__gobuster_dir mcp__bolt__scoutsuite_*
+mcp__bolt__masscan_*          mcp__bolt__hydra_hydra     mcp__bolt__john_*
+mcp__bolt__hashcat_crack      mcp__bolt__gobuster_dir    mcp__bolt__sslscan_*
+mcp__bolt__sqlmap_*           mcp__bolt__wpscan_*        mcp__bolt__rustscan_*
+mcp__bolt__dnsx_dnsx_resolve  mcp__bolt__httpx           mcp__bolt__ffuf
+mcp__bolt__impacket_kerberoast  mcp__bolt__scoutsuite_*  mcp__bolt__smuggler_*
 ```
 
-## 4. Traps
+If a name is missing locally but covered above, call the `mcp__bolt__*` tool instead of hunting a binary.
 
-- Writes land **root-owned** on the host: this container runs as root. Prefer `/mnt/Pandora/Hack/results/` or `/app/data` for output, and say so when a tool writes beside itself.
-- `/mnt/Pandora/docker-lib` is the host's **Docker data root** (every overlay layer). Keep searches scoped to `/mnt/Pandora/<area>` instead of the whole tree.
-- The mount is read-write. Do not delete or move host tools; report instead.
-- Nothing is copied into the image — the mount is the only reason these paths exist. Files a tool writes beside itself survive the container.
+## 4. What still needs a runtime
+
+- No `docker` CLI and no Docker socket → the ~24 host Dockerfiles and 18 compose stacks (`Workshop/HexSecTempest`, `Web_image/*`, …) cannot be started from inside.
+- No `java` → ghidra, ZAP, burpsuite. No `ruby` → metasploit, beef, evil-winrm, wpscan.
+- A wrapper around one of those fails with a missing interpreter: report it, do not retry blindly.
+
+## 5. Traps
+
+- This container runs as root, so writes under `/mnt/Pandora` land root-owned on the host. Prefer `/mnt/Pandora/Hack/results/` or `/app/data`.
+- `/mnt/Pandora/docker-lib` is the host's Docker data root: keep searches scoped to a subdirectory.
+- Everything except `/mnt/Pandora` is read-only.
+- `error while loading shared libraries` means the binary needs a host library that is not mounted — use the MCP equivalent or report it.
