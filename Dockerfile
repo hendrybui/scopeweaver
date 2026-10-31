@@ -24,17 +24,21 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -tags embedui -
 # CLI only; the daemon stays on the host and is reached through the socket.
 FROM docker:27-cli AS dockercli
 
-FROM python:3.12-slim-bookworm
+# Trixie (glibc 2.41) rather than bookworm (2.36): the mounted host binaries are
+# built for glibc 2.39, and on bookworm even the host's own `ls` fails with
+# "version `GLIBC_2.38' not found".
+FROM python:3.12-slim-trixie
 # Runtime tools and Node 20 for Playwright. Browser installation occurs at build time.
 # java and ruby exist because host tool trees wrap them (ghidra, ZAP, burpsuite,
 # metasploit, beef, evil-winrm); the lib* entries are host binaries that failed
 # with "error while loading shared libraries" when resolved through the mounts.
+# trixie carries the t64 package renames.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates ripgrep curl wget vim git jq unzip \
       dnsutils iputils-ping netcat-openbsd inetutils-telnet whois nmap \
       iproute2 procps psmisc lsof \
-      openjdk-17-jre-headless ruby-full \
-      libgomp1 libminizip1 libpcap0.8 liblua5.4-0 \
+      openjdk-21-jdk-headless ruby-full \
+      libgomp1 libminizip1t64 libpcap0.8t64 liblua5.4-0 \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
