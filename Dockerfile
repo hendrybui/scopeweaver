@@ -67,6 +67,16 @@ COPY THIRD_PARTY_NOTICES.txt /app/THIRD_PARTY_NOTICES.txt
 RUN ln -sf /usr/local/bin/python3.12 /usr/bin/python3 \
  && printf '%s\n' /usr/local/lib/python3.12/dist-packages \
       > /usr/local/lib/python3.12/site-packages/host-dist-packages.pth
+# Host binaries need host-only libraries, while the image must keep its own glibc
+# and OpenSSL (a host libc here is 2.39 against the image loader's 2.41, and an
+# OpenSSL 3.0 cannot satisfy this image's 3.5-built python). The loader cache
+# resolves a soname to the FIRST directory registered, so the image's own
+# multiarch directory is listed in a conf file that sorts before the host tree:
+# image libraries win, host-only sonames are appended, nothing is shadowed.
+# (The file-pinned libraries in compose stay as a belt-and-braces fallback.)
+RUN printf '%s\n' /usr/lib/x86_64-linux-gnu > /etc/ld.so.conf.d/00-img-libs.conf \
+ && printf '%s\n' /host/usrlib/x86_64-linux-gnu /host/usrlib/x86_64-linux-gnu/samba \
+      > /etc/ld.so.conf.d/10-host-libs.conf
 VOLUME ["/app/data"]
 EXPOSE 8787 8788
 ENTRYPOINT ["/app/start.sh"]

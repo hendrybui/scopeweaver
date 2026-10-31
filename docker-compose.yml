@@ -38,6 +38,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # ldconfig publishes /host/usrlib into the loader cache at start (the tree is
+    # a bind mount, so it cannot be cached at build time), then hands off to the
+    # image entrypoint unchanged.
+    entrypoint: ["/bin/sh", "-c", "ldconfig 2>/dev/null || true; exec /app/start.sh \"$@\"", "sh"]
+    # Explicit, because the entrypoint wrapper takes the image CMD as arguments.
+    command: ["-addr", ":8787", "-proxy", ":8788"]
     environment:
       # Host shims lead, then the /opt tool entry points that are plain scripts
       # (they need no install), then the image paths behind them.
@@ -94,6 +100,11 @@ services:
       # lacks (masscan, hydra, john, hashcat, sslscan, gcc, go …) resolve here.
       - /usr/bin:/host/usrbin:ro
       - /usr/sbin:/host/usrsbin:ro
+      # The whole host library tree, published to the loader through the cache
+      # entry baked at /etc/ld.so.conf.d/10-host-libs.conf (see the Dockerfile).
+      # The container keeps its own glibc/OpenSSL; only host-specific sonames come
+      # from here, which is what every host binary was missing.
+      - /usr/lib:/host/usrlib:ro
       # /usr/local/bin and /usr/bin are full of RELATIVE links (`../lib/...`), which
       # resolve against the directory holding the link — here /host — so mirror the
       # two big target trees at the matching name. Both are new directories in the
@@ -116,6 +127,24 @@ services:
       # set is dlopen'd by CPU feature, so all of its variants are listed.
       - /usr/lib/x86_64-linux-gnu/libfbclient.so.2:/usr/lib/x86_64-linux-gnu/libfbclient.so.2:ro
       - /usr/lib/x86_64-linux-gnu/libidn.so.12:/usr/lib/x86_64-linux-gnu/libidn.so.12:ro
+      # Dependency closure of the host binaries in /host/usrbin (hydra's auth
+      # modules, tshark, and whatever else links them) — enumerated with ldd.
+      - /usr/lib/x86_64-linux-gnu/libmysqlclient.so.21:/usr/lib/x86_64-linux-gnu/libmysqlclient.so.21:ro
+      - /usr/lib/x86_64-linux-gnu/libpq.so.5:/usr/lib/x86_64-linux-gnu/libpq.so.5:ro
+      - /usr/lib/x86_64-linux-gnu/libsvn_client-1.so.1:/usr/lib/x86_64-linux-gnu/libsvn_client-1.so.1:ro
+      - /usr/lib/x86_64-linux-gnu/libsvn_subr-1.so.1:/usr/lib/x86_64-linux-gnu/libsvn_subr-1.so.1:ro
+      - /usr/lib/x86_64-linux-gnu/libapr-1.so.0:/usr/lib/x86_64-linux-gnu/libapr-1.so.0:ro
+      - /usr/lib/x86_64-linux-gnu/libssh.so.4:/usr/lib/x86_64-linux-gnu/libssh.so.4:ro
+      - /usr/lib/x86_64-linux-gnu/libmemcached.so.11:/usr/lib/x86_64-linux-gnu/libmemcached.so.11:ro
+      - /usr/lib/x86_64-linux-gnu/libmongoc-1.0.so.0:/usr/lib/x86_64-linux-gnu/libmongoc-1.0.so.0:ro
+      - /usr/lib/x86_64-linux-gnu/libbson-1.0.so.0:/usr/lib/x86_64-linux-gnu/libbson-1.0.so.0:ro
+      - /usr/lib/x86_64-linux-gnu/libfreerdp2.so.2:/usr/lib/x86_64-linux-gnu/libfreerdp2.so.2:ro
+      - /usr/lib/x86_64-linux-gnu/libwinpr2.so.2:/usr/lib/x86_64-linux-gnu/libwinpr2.so.2:ro
+      - /usr/lib/x86_64-linux-gnu/libtommath.so.1:/usr/lib/x86_64-linux-gnu/libtommath.so.1:ro
+      - /usr/lib/x86_64-linux-gnu/libhwloc.so.15:/usr/lib/x86_64-linux-gnu/libhwloc.so.15:ro
+      - /usr/lib/x86_64-linux-gnu/libwireshark.so.17:/usr/lib/x86_64-linux-gnu/libwireshark.so.17:ro
+      - /usr/lib/x86_64-linux-gnu/libwiretap.so.14:/usr/lib/x86_64-linux-gnu/libwiretap.so.14:ro
+      - /usr/lib/x86_64-linux-gnu/libwsutil.so.15:/usr/lib/x86_64-linux-gnu/libwsutil.so.15:ro
       - /usr/local/lib/libaircrack-ce-wpa.so:/usr/local/lib/libaircrack-ce-wpa.so:ro
       - /usr/local/lib/libaircrack-ce-wpa-1.7.0.so:/usr/local/lib/libaircrack-ce-wpa-1.7.0.so:ro
       - /usr/local/lib/libaircrack-osdep.so:/usr/local/lib/libaircrack-osdep.so:ro
