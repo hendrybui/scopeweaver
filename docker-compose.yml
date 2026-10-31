@@ -13,7 +13,24 @@ services:
       timeout: 3s
       retries: 10
     restart: unless-stopped
-
+  # Storm-Breaker lives in its own checkout, so the build context is an absolute
+  # host path. Runs as the host user to keep SQLite, Settings.json and captured
+  # artifacts owned by the host account instead of root.
+  storm:
+    build:
+      context: /mnt/Pandora/owncloud/Storm-Breaker
+    working_dir: /app/storm-web
+    user: "1000:1000"
+    volumes:
+      - /mnt/Pandora/owncloud/Storm-Breaker/storm-web:/app/storm-web   # keep Settings.json + sqlite DB on disk
+    ports:
+      - "2525:2525"
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request as u; u.urlopen('http://127.0.0.1:2525/login').read()\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
   scopeweaver:
     build:
       context: .
