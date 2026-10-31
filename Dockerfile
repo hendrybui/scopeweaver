@@ -41,6 +41,16 @@ RUN chmod +x /app/scopeweaver /app/start.sh
 COPY skills/ /app/skills/
 COPY LICENSE /app/LICENSE
 COPY THIRD_PARTY_NOTICES.txt /app/THIRD_PARTY_NOTICES.txt
+# Host tool trees are bind-mounted at their own path. Their venv entry points are
+# symlinks through /usr/bin/python3, which Debian slim points at 3.11 while those
+# venvs (and this image's /usr/local/bin/python3.12) are 3.12 — a version mismatch
+# makes every mounted site-packages unimportable. Repoint it so mounted venvs
+# resolve to the image's matching interpreter, and append the mounted host
+# dist-packages via .pth so host-only modules stay importable without shadowing
+# the image's own site-packages.
+RUN ln -sf /usr/local/bin/python3.12 /usr/bin/python3 \
+ && printf '%s\n' /usr/local/lib/python3.12/dist-packages \
+      > /usr/local/lib/python3.12/site-packages/host-dist-packages.pth
 VOLUME ["/app/data"]
 EXPOSE 8787 8788
 ENTRYPOINT ["/app/start.sh"]

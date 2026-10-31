@@ -51,6 +51,13 @@ services:
     volumes:
       - ./data:/app/data
       - ./skills:/app/skills
+      # Host tool tree, mounted at the SAME path so absolute shebangs inside
+      # venvs (/mnt/Pandora/.../venv/bin/python) and tool config paths resolve.
+      # Read-write: the agent may drop results next to a tool. Add :ro for none.
+      - /mnt/Pandora:/mnt/Pandora
+      # Host-wide pip packages, so host-only modules import here too (the image
+      # appends this path, so its own packages still win on conflicts).
+      - /usr/local/lib/python3.12/dist-packages:/usr/local/lib/python3.12/dist-packages:ro
     restart: unless-stopped
 
   ollama:
