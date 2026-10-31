@@ -8,10 +8,17 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-artex} -d ${POSTGRES_DB:-artex}"]
+      # Authenticates over TCP with the SAME variables the app's DSN is built
+      # from, against the container's own (non-loopback) address so the
+      # scram-sha-256 rule applies — the image trusts 127.0.0.1, so a loopback
+      # check cannot see a drifted password. `pg_isready` alone only proves the
+      # postmaster is up, so a user/password that no longer matches the role in
+      # the volume still reported healthy while every app connection failed.
+      test: ["CMD-SHELL", "PGPASSWORD=\"$$POSTGRES_PASSWORD\" psql -h \"$$(hostname -i | awk '{print $$1}')\" -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -tAc 'select 1' >/dev/null"]
       interval: 5s
       timeout: 3s
       retries: 10
+      start_period: 15s
     restart: unless-stopped
   # Storm-Breaker lives in its own checkout, so the build context is an absolute
   # host path. Runs as the host user to keep SQLite, Settings.json and captured
