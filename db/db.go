@@ -274,6 +274,9 @@ ON CONFLICT (name) DO NOTHING`,
 	if err := d.seedAgentMCPBindings("hexsecgpt", "bolt"); err != nil {
 		return err
 	}
+	if err := d.seedAgentWebSearch("hexsecgpt", "hexsecgpt_web_search_v1"); err != nil {
+		return err
+	}
 	if err := d.seedDefaultInterceptRules(); err != nil {
 		return locale.Errorf("seed intercept rules: %w", err)
 	}

@@ -21,3 +21,15 @@ WHERE a.key=$1 AND m.name=$2
 	}
 	return nil
 }
+
+// seedAgentWebSearch turns web search on for an agent once, without resurrecting a
+// later user toggle-off (guard flag in settings).
+func (d *DB) seedAgentWebSearch(agentKey, flag string) error {
+	if v, _, _ := d.GetSetting(flag); v == "true" {
+		return nil
+	}
+	if _, err := d.Exec(`UPDATE agents SET web_search=true WHERE key=$1`, agentKey); err != nil {
+		return locale.Errorf("enable web search for %s: %w", agentKey, err)
+	}
+	return d.SetSetting(flag, "true")
+}
