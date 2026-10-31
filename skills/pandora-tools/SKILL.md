@@ -64,3 +64,7 @@ If a name is missing locally but covered above, call the `mcp__bolt__*` tool ins
 - `/mnt/Pandora/docker-lib` is the host's Docker data root: keep searches scoped to a subdirectory.
 - Everything except `/mnt/Pandora` is read-only.
 - `error while loading shared libraries` means the binary needs a host library that is not mounted — use the MCP equivalent or report it.
+
+## 6. Full inventory
+
+`reference.md` in this skill lists every mounted host path, the measured counts, and the entries that are known-broken here with the reason — read it before assuming a tool is absent.
