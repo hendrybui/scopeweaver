@@ -1,3 +1,10 @@
+# Portable stack: postgres, the app, and an opt-in ollama profile.
+#
+# Anything that depends on THIS machine's layout — the Pandora tool tree, host
+# binaries/libraries, the separate storm checkout — lives in
+# docker-compose.override.yml, which Compose merges automatically when it sits
+# next to this file. On a machine without those paths, edit that file or delete
+# it and run the base alone.
 services:
   postgres:
     image: postgres:16-alpine
@@ -20,24 +27,6 @@ services:
       retries: 10
       start_period: 15s
     restart: unless-stopped
-  # Storm-Breaker lives in its own checkout, so the build context is an absolute
-  # host path. Runs as the host user to keep SQLite, Settings.json and captured
-  # artifacts owned by the host account instead of root.
-  storm:
-    build:
-      context: /mnt/Pandora/owncloud/Storm-Breaker
-    working_dir: /app/storm-web
-    user: "1000:1000"
-    volumes:
-      - /mnt/Pandora/owncloud/Storm-Breaker/storm-web:/app/storm-web   # keep Settings.json + sqlite DB on disk
-    ports:
-      - "2525:2525"
-    healthcheck:
-      test: ["CMD-SHELL", "python3 -c \"import urllib.request as u; u.urlopen('http://127.0.0.1:2525/login').read()\""]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-    restart: unless-stopped
   scopeweaver:
     build:
       context: .
@@ -45,16 +34,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    # ldconfig publishes /host/usrlib into the loader cache at start (the tree is
-    # a bind mount, so it cannot be cached at build time), then hands off to the
-    # image entrypoint unchanged.
+    # ldconfig publishes the host library tree into the loader cache at start when
+    # it is mounted (a bind mount cannot be cached at build time), then hands off to
+    # the image entrypoint unchanged. Harmless without it.
     entrypoint: ["/bin/sh", "-c", "ldconfig 2>/dev/null || true; exec /app/start.sh \"$@\"", "sh"]
     # Explicit, because the entrypoint wrapper takes the image CMD as arguments.
     command: ["-addr", ":8787", "-proxy", ":8788"]
     environment:
-      # Host shims lead, then the /opt tool entry points that are plain scripts
-      # (they need no install), then the image paths behind them.
-      PATH: /host/bin:/home/neocyan/.local/bin:/opt/metasploit-framework/bin:/opt/ZAP_2.16.1:/opt/testssl.sh:/opt/enum4linux-ng:/opt/beef:/opt/spiderfoot:/opt/nosqlmap:/opt/Responder:/opt/jwt_tool:/opt/docker-bench-security:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/host/usrbin:/host/usrsbin:/sbin:/bin
       SCOPEWEAVER_LANGUAGE: ${SCOPEWEAVER_LANGUAGE:-en}
       ARTEX_PG_DSN: postgres://${POSTGRES_USER:-artex}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-artex}?sslmode=disable
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
@@ -90,84 +76,6 @@ services:
       # "write jwt key" path fires — `touch jwt.key` if it is missing. An empty
       # file is fine: the server writes a real 32-byte key into it on first start.
       - ./jwt.key:/app/jwt.key
-      # Host tool tree, mounted at the SAME path so absolute shebangs inside
-      # venvs (/mnt/Pandora/.../venv/bin/python) and tool config paths resolve.
-      # Read-write: the agent may drop results next to a tool. Add :ro for none.
-      - /mnt/Pandora:/mnt/Pandora
-      # Host-wide pip packages, so host-only modules import here too (the image
-      # appends this path, so its own packages still win on conflicts).
-      - /usr/local/lib/python3.12/dist-packages:/usr/local/lib/python3.12/dist-packages:ro
-      # Host tool homes. Almost every host "binary" is a shim, a symlink or a
-      # venv entry point whose shebang/target is an absolute host path, so these
-      # must be mounted at parity — a copy or a relocate breaks them.
-      - /home/neocyan/.local/bin:/home/neocyan/.local/bin:ro
-      - /home/neocyan/.local/share/uv:/home/neocyan/.local/share/uv:ro
-      - /home/neocyan/.local/share/pipx:/home/neocyan/.local/share/pipx:ro
-      - /opt:/opt:ro
-      # /usr/local/bin holds only shims/links, so it goes to /host/bin and leads
-      # PATH. Mounting it over the image's /usr/local/bin would shadow this
-      # image's own python3.12/pip/playwright.
-      - /usr/local/bin:/host/bin:ro
-      # Host system binaries. They trail the image's own /usr/bin in PATH so
-      # trixie coreutils/python stay authoritative, and only the names the image
-      # lacks (masscan, hydra, john, hashcat, sslscan, gcc, go …) resolve here.
-      - /usr/bin:/host/usrbin:ro
-      - /usr/sbin:/host/usrsbin:ro
-      # The whole host library tree, published to the loader through the cache
-      # entry baked at /etc/ld.so.conf.d/10-host-libs.conf (see the Dockerfile).
-      # The container keeps its own glibc/OpenSSL; only host-specific sonames come
-      # from here, which is what every host binary was missing.
-      - /usr/lib:/host/usrlib:ro
-      # /usr/local/bin and /usr/bin are full of RELATIVE links (`../lib/...`), which
-      # resolve against the directory holding the link — here /host — so mirror the
-      # two big target trees at the matching name. Both are new directories in the
-      # image, so nothing is shadowed.
-      - /usr/lib:/host/lib:ro
-      - /usr/share:/host/share:ro
-      # Absolute links (`/usr/lib/go-1.22/...`) need the target mounted at parity:
-      # mount the trees absent from the image; each is self-contained.
-      - /usr/lib/go-1.22:/usr/lib/go-1.22:ro
-      - /usr/lib/llvm-16:/usr/lib/llvm-16:ro
-      - /usr/lib/llvm-17:/usr/lib/llvm-17:ro
-      - /usr/lib/llvm-18:/usr/lib/llvm-18:ro
-      - /usr/lib/llvm-20:/usr/lib/llvm-20:ro
-      - /usr/share/sqlmap:/usr/share/sqlmap:ro
-      - /usr/lib/jvm/java-8-openjdk-amd64:/usr/lib/jvm/java-8-openjdk-amd64:ro
-      # john reads its own config directory.
-      - /etc/john:/etc/john:ro
-      # Shared libraries only the image lacks (hydra, aircrack-ng); file mounts
-      # avoid shadowing the container's own glibc-bearing directory. The aircrack
-      # set is dlopen'd by CPU feature, so all of its variants are listed.
-      - /usr/lib/x86_64-linux-gnu/libfbclient.so.2:/usr/lib/x86_64-linux-gnu/libfbclient.so.2:ro
-      - /usr/lib/x86_64-linux-gnu/libidn.so.12:/usr/lib/x86_64-linux-gnu/libidn.so.12:ro
-      # Dependency closure of the host binaries in /host/usrbin (hydra's auth
-      # modules, tshark, and whatever else links them) — enumerated with ldd.
-      - /usr/lib/x86_64-linux-gnu/libmysqlclient.so.21:/usr/lib/x86_64-linux-gnu/libmysqlclient.so.21:ro
-      - /usr/lib/x86_64-linux-gnu/libpq.so.5:/usr/lib/x86_64-linux-gnu/libpq.so.5:ro
-      - /usr/lib/x86_64-linux-gnu/libsvn_client-1.so.1:/usr/lib/x86_64-linux-gnu/libsvn_client-1.so.1:ro
-      - /usr/lib/x86_64-linux-gnu/libsvn_subr-1.so.1:/usr/lib/x86_64-linux-gnu/libsvn_subr-1.so.1:ro
-      - /usr/lib/x86_64-linux-gnu/libapr-1.so.0:/usr/lib/x86_64-linux-gnu/libapr-1.so.0:ro
-      - /usr/lib/x86_64-linux-gnu/libssh.so.4:/usr/lib/x86_64-linux-gnu/libssh.so.4:ro
-      - /usr/lib/x86_64-linux-gnu/libmemcached.so.11:/usr/lib/x86_64-linux-gnu/libmemcached.so.11:ro
-      - /usr/lib/x86_64-linux-gnu/libmongoc-1.0.so.0:/usr/lib/x86_64-linux-gnu/libmongoc-1.0.so.0:ro
-      - /usr/lib/x86_64-linux-gnu/libbson-1.0.so.0:/usr/lib/x86_64-linux-gnu/libbson-1.0.so.0:ro
-      - /usr/lib/x86_64-linux-gnu/libfreerdp2.so.2:/usr/lib/x86_64-linux-gnu/libfreerdp2.so.2:ro
-      - /usr/lib/x86_64-linux-gnu/libwinpr2.so.2:/usr/lib/x86_64-linux-gnu/libwinpr2.so.2:ro
-      - /usr/lib/x86_64-linux-gnu/libtommath.so.1:/usr/lib/x86_64-linux-gnu/libtommath.so.1:ro
-      - /usr/lib/x86_64-linux-gnu/libhwloc.so.15:/usr/lib/x86_64-linux-gnu/libhwloc.so.15:ro
-      - /usr/lib/x86_64-linux-gnu/libwireshark.so.17:/usr/lib/x86_64-linux-gnu/libwireshark.so.17:ro
-      - /usr/lib/x86_64-linux-gnu/libwiretap.so.14:/usr/lib/x86_64-linux-gnu/libwiretap.so.14:ro
-      - /usr/lib/x86_64-linux-gnu/libwsutil.so.15:/usr/lib/x86_64-linux-gnu/libwsutil.so.15:ro
-      - /usr/local/lib/libaircrack-ce-wpa.so:/usr/local/lib/libaircrack-ce-wpa.so:ro
-      - /usr/local/lib/libaircrack-ce-wpa-1.7.0.so:/usr/local/lib/libaircrack-ce-wpa-1.7.0.so:ro
-      - /usr/local/lib/libaircrack-osdep.so:/usr/local/lib/libaircrack-osdep.so:ro
-      - /usr/local/lib/libaircrack-osdep-1.7.0.so:/usr/local/lib/libaircrack-osdep-1.7.0.so:ro
-      - /usr/local/lib/libaircrack-ce-wpa-x86-avx2.so:/usr/local/lib/libaircrack-ce-wpa-x86-avx2.so:ro
-      - /usr/local/lib/libaircrack-ce-wpa-x86-avx2-1.7.0.so:/usr/local/lib/libaircrack-ce-wpa-x86-avx2-1.7.0.so:ro
-      - /usr/local/lib/libaircrack-ce-wpa-x86-avx.so:/usr/local/lib/libaircrack-ce-wpa-x86-avx.so:ro
-      - /usr/local/lib/libaircrack-ce-wpa-x86-avx-1.7.0.so:/usr/local/lib/libaircrack-ce-wpa-x86-avx-1.7.0.so:ro
-      - /usr/local/lib/libaircrack-ce-wpa-x86-sse2.so:/usr/local/lib/libaircrack-ce-wpa-x86-sse2.so:ro
-      - /usr/local/lib/libaircrack-ce-wpa-x86-sse2-1.7.0.so:/usr/local/lib/libaircrack-ce-wpa-x86-sse2-1.7.0.so:ro
       # The host daemon, so `docker`/`docker compose` here act on host stacks.
       # Note the socket is root-equivalent: the container can drive every host
       # container, and any path it passes must exist on the HOST, not here.
