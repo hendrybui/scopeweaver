@@ -1,0 +1,6 @@
+# Outbound proxy chain an agent tried for the LLM provider profile.
+# Format: '<scheme>://<host>:<port>' pairs, '-' separated = fallback order.
+# Neither endpoint answers as a proxy from inside the container
+# (127.0.0.1 there is the container itself), which is why llm_profiles.proxy
+# for the Z.ai profile was cleared and LLM calls go direct.
+socks5://user:pass@127.0.0.1:1080-http://127.0.0.1:8080

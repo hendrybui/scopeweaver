@@ -19,6 +19,7 @@ for n in $(...); do command -v "$n" >/dev/null && echo "$n"; done   # names that
 | `/home/neocyan/.local/share/uv` | interpreter homes for the 3.11/3.10/3.14 venvs | ro |
 | `/home/neocyan/.local/share/pipx` | pipx venvs behind several shims | ro |
 | `/host/usrbin`, `/host/usrsbin` | host system binaries (trail the image's own paths) | ro |
+| `/host/usrlib` | whole host library tree, published to the loader cache by `/etc/ld.so.conf.d/10-host-libs.conf` + `ldconfig` at start; the image's own dir is listed in `00-img-libs.conf` first so its glibc/OpenSSL stay authoritative | ro |
 | `/host/lib`, `/host/share` | targets of *relative* symlinks in the two bin dirs | ro |
 | `/usr/lib/{go-1.22,llvm-16..20}`, `/usr/share/sqlmap`, `/usr/lib/jvm/java-8-*` | targets of *absolute* symlinks, at parity | ro |
 | `/usr/local/lib/python3.12/dist-packages` | host pip modules (appended via `.pth`) | ro |
@@ -37,11 +38,17 @@ for n in $(...); do command -v "$n" >/dev/null && echo "$n"; done   # names that
 
 | Symptom | Cause | Do instead |
 | --- | --- | --- |
-| `error while loading shared libraries: libmysqlclient.so.21` | hydra's lib chain is not fully mounted | `mcp__bolt__hydra_hydra` |
-| `tshark` missing `libwiretap` | the host itself lacks them | `tcpdump`, `nmap` |
-| `sqlmap` → `No module named 'sqlmap'` | the wrapper expects its package on `sys.path` | `mcp__bolt__sqlmap_*` |
-| `java`/`javac`/`jar` fine, but host `javac` shadow | image JRE/JDK chosen over the host JDK 8 tree | use the image's `javac` |
-| A name missing entirely | lives only inside another container | check `mcp__bolt__*` first |
+| `sqlmap` → `No module named 'sqlmap'` | its wrapper expects the package on `sys.path`, and the file itself resolves through a symlink | `mcp__bolt__sqlmap_*` |
+| `symbol lookup error: ... GLIBC_PRIVATE` | a host library won the cache before the image's own | confirm `/etc/ld.so.conf.d/00-img-libs.conf` sorts first and `ldconfig` ran at start |
+| `error while loading shared libraries: <lib>` on a host binary | library lives in a host tree not covered by the cache | add its directory to `10-host-libs.conf` |
+| A name missing entirely | lives only inside another container, or is a GUI tool needing X | check `mcp__bolt__*` first |
+| `emacs`-style KDE/Qt tools failing on `libKF5*` | GUI stack, never complete without X | run them headless or skip |
+
+Host libraries are published through the loader **cache**, not by shadowing: the
+image's multiarch directory is registered first, so its glibc and OpenSSL win and
+only host-specific sonames are appended. That is what turned hydra, tshark, nmap,
+hashcat, john, aircrack-ng, medusa, tcpdump and smbclient from
+`error while loading shared libraries` into working commands.
 
 ## Rules
 
