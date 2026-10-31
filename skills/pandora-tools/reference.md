@@ -25,6 +25,7 @@ for n in $(...); do command -v "$n" >/dev/null && echo "$n"; done   # names that
 | `/usr/local/lib/python3.12/dist-packages` | host pip modules (appended via `.pth`) | ro |
 | `/usr/lib/x86_64-linux-gnu/libfbclient.so.2`, `libidn.so.12`, `/usr/local/lib/libaircrack-*.so`, `/etc/john` | files/libs the image lacks | ro |
 | `/var/run/docker.sock` | host Docker daemon | rw |
+| `./jwt.key` → `/app/jwt.key` | session signing key, pinned so recreates do not log every browser out (the source file must exist — `touch jwt.key` — or Docker makes a directory there and startup fails) | rw |
 
 ## Counts (measured here)
 

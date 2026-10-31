@@ -77,6 +77,12 @@ services:
     volumes:
       - ./data:/app/data
       - ./skills:/app/skills
+      # Session key, pinned outside the image: without this every recreate
+      # regenerates /app/jwt.key and logs every browser out. The SOURCE FILE must
+      # exist, otherwise Docker creates a directory at the target and the fatal
+      # "write jwt key" path fires — `touch jwt.key` if it is missing. An empty
+      # file is fine: the server writes a real 32-byte key into it on first start.
+      - ./jwt.key:/app/jwt.key
       # Host tool tree, mounted at the SAME path so absolute shebangs inside
       # venvs (/mnt/Pandora/.../venv/bin/python) and tool config paths resolve.
       # Read-write: the agent may drop results next to a tool. Add :ro for none.
