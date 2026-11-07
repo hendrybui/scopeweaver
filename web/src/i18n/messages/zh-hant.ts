@@ -201,6 +201,15 @@ export const english: Record<keyof typeof englishSource, string> = {
   e189: "粗野主義",
   e190: "柔和流行",
   e191: "橘色",
+  e192: "系統提示詞",
+  e193: "此智慧代理的角色設定與運行指令",
+  e194: "工具授權",
+  e195: "已選 {p0} 項",
+  e196: "現在為該智慧代理綁定工具；之後可在 Tools 分頁修改。",
+  e197: "平台後端離線",
+  e198: "無法存取智慧代理 API。請啟動 scopeweaver 伺服器後重新整理。",
+  e199: "智慧代理「{p0}」已建立，但部分設定失敗：{p1}",
+  e200: "留空則保留初始提示詞",
 };
 
 import type { en as interfaceSource } from "./interface.ts";

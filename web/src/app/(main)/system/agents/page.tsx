@@ -8,8 +8,11 @@ import { Bot, PlusIcon, Trash2Icon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
@@ -41,7 +44,7 @@ import {
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AgentEditor } from "@/components/agent-editor";
 import { api } from "@/lib/api";
-import type { Agent } from "@/lib/types";
+import type { Agent, LLMProfile, Tool } from "@/lib/types";
 
 // AgentGridCard is one clickable tile opening the agent's editor drawer. Custom
 // (non-builtin) agents get a delete button.
@@ -122,26 +125,103 @@ function AgentGridCard({
   );
 }
 
+// CreateAgentDialog gives a new agent its real configuration at birth, then the
+// page opens the full editor drawer (create → configure in one flow). The
+// platform creates agents from {key, name, description}; every other setting
+// rides the same endpoints the editor saves through: PUT /agents/{key}/config,
+// PUT /agents/{key}/prompt, PUT /tools/{key}.
 function CreateAgentDialog({ onCreated }: { onCreated: (key: string) => void }) {
   "use no memo";
-  const { t: swt, locale: swLocale } = useI18n();
+  const { t: swt } = useI18n();
 
   const [open, setOpen] = React.useState(false);
   const [key, setKey] = React.useState("");
   const [name, setName] = React.useState("");
   const [description, setDescription] = React.useState("");
+  const [modelId, setModelId] = React.useState("");
+  const [system, setSystem] = React.useState("");
+  const [webSearch, setWebSearch] = React.useState(false);
+  const [interactiveShell, setInteractiveShell] = React.useState(false);
+  const [grants, setGrants] = React.useState<string[]>([]);
+  const [profiles, setProfiles] = React.useState<LLMProfile[]>([]);
+  const [tools, setTools] = React.useState<Tool[]>([]);
   const [busy, setBusy] = React.useState(false);
+
+  // Load the model + tool catalogs when the dialog opens so the birth settings
+  // list what the platform actually has.
+  React.useEffect(() => {
+    if (!open) return;
+    api
+      .llmProfiles()
+      .then(setProfiles)
+      .catch(() => setProfiles([]));
+    api
+      .tools()
+      .then(setTools)
+      .catch(() => setTools([]));
+  }, [open]);
+
+  function toggleGrant(toolKey: string) {
+    setGrants((prev) => (prev.includes(toolKey) ? prev.filter((g) => g !== toolKey) : [...prev, toolKey]));
+  }
+
+  function reset() {
+    setKey("");
+    setName("");
+    setDescription("");
+    setModelId("");
+    setSystem("");
+    setWebSearch(false);
+    setInteractiveShell(false);
+    setGrants([]);
+  }
 
   async function create() {
     setBusy(true);
     try {
       const a = await api.createAgent(key.trim(), name.trim(), description.trim());
-      toast.success(swt("interface.m1139", { p0: a.name }));
+      const agentKey = a.key;
+      // Birth settings ride the editor's own save endpoints. Each step is
+      // independent: a failure is reported but never loses the agent.
+      const failures: string[] = [];
+      try {
+        const patch: Parameters<typeof api.saveAgentConfig>[1] = {};
+        if (modelId) patch.llm_profile_id = Number(modelId);
+        if (webSearch) patch.web_search = true;
+        if (interactiveShell) patch.interactive_shell = true;
+        if (Object.keys(patch).length > 0) await api.saveAgentConfig(agentKey, patch);
+      } catch (e) {
+        failures.push(`config: ${(e as Error).message}`);
+      }
+      if (system.trim()) {
+        try {
+          await api.saveAgentPrompt(agentKey, system, "initial");
+        } catch (e) {
+          failures.push(`prompt: ${(e as Error).message}`);
+        }
+      }
+      for (const toolKey of grants) {
+        const tool = tools.find((x) => x.key === toolKey);
+        if (!tool) continue;
+        try {
+          await api.saveTool(toolKey, {
+            description: tool.description,
+            schema: tool.schema,
+            enabled: tool.enabled,
+            agents: tool.agents.includes(agentKey) ? tool.agents : [...tool.agents, agentKey],
+          });
+        } catch (e) {
+          failures.push(`${toolKey}: ${(e as Error).message}`);
+        }
+      }
+      if (failures.length > 0) {
+        toast.error(swt("english.e199", { p0: a.name, p1: failures.join("; ") }));
+      } else {
+        toast.success(swt("interface.m1139", { p0: a.name }));
+      }
       setOpen(false);
-      setKey("");
-      setName("");
-      setDescription("");
-      onCreated(a.key);
+      reset();
+      onCreated(agentKey);
     } catch (e) {
       toast.error(swt("interface.m1027") + (e as Error).message);
     } finally {
@@ -158,7 +238,7 @@ function CreateAgentDialog({ onCreated }: { onCreated: (key: string) => void }) 
         <Button size="sm">
           <PlusIcon /> {swt("interface.m1140")}</Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{swt("interface.m1141")}</DialogTitle>
           <DialogDescription>
@@ -197,6 +277,85 @@ function CreateAgentDialog({ onCreated }: { onCreated: (key: string) => void }) 
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="agent-model">{swt("interface.m1917")}</Label>
+            <Select value={modelId || "__follow__"} onValueChange={(v) => setModelId(v === "__follow__" ? "" : v)}>
+              <SelectTrigger id="agent-model" className="w-full">
+                <SelectValue placeholder={swt("interface.m1918")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__follow__">{swt("interface.m1918")}</SelectItem>
+                {profiles.map((p) => (
+                  <SelectItem key={p.id} value={String(p.id)}>
+                    {p.name}（{p.model}）{p.is_default ? swt("interface.m1919") : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="agent-system">{swt("english.e192")}</Label>
+            <Textarea
+              id="agent-system"
+              placeholder={swt("english.e193")}
+              rows={4}
+              value={system}
+              onChange={(e) => setSystem(e.target.value)}
+              className="font-mono text-xs"
+            />
+            <p className="text-muted-foreground text-xs">{swt("english.e200")}</p>
+          </div>
+          <div className="grid gap-2 rounded-md border p-3 sm:grid-cols-2">
+            <div className="flex items-center gap-3">
+              <Switch id="agent-web-search" checked={webSearch} onCheckedChange={setWebSearch} />
+              <Label htmlFor="agent-web-search" className="text-sm">
+                {swt("interface.m1187")}
+              </Label>
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch id="agent-shell" checked={interactiveShell} onCheckedChange={setInteractiveShell} />
+              <Label htmlFor="agent-shell" className="text-sm">
+                {swt("interface.m1925")}
+              </Label>
+            </div>
+          </div>
+          <div className="grid gap-1.5">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="agent-grants">{swt("english.e194")}</Label>
+              {grants.length > 0 && (
+                <span className="text-muted-foreground text-xs">
+                  {swt("english.e195", { p0: String(grants.length) })}
+                </span>
+              )}
+            </div>
+            {tools.length === 0 ? (
+              <p className="text-muted-foreground rounded-md border px-3 py-2 text-xs">{swt("interface.m1973")}</p>
+            ) : (
+              <div className="grid max-h-44 gap-1 overflow-y-auto rounded-md border p-3">
+                {tools.map((tool) => {
+                  const checked = grants.includes(tool.key);
+                  return (
+                    <label
+                      key={tool.key}
+                      className="hover:bg-accent/50 flex cursor-pointer items-start gap-2 rounded px-1 py-0.5"
+                    >
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={() => toggleGrant(tool.key)}
+                        className="mt-0.5"
+                        aria-label={tool.key}
+                      />
+                      <span className="min-w-0 text-xs leading-5">
+                        <span className="font-mono">{tool.key}</span>
+                        {!tool.enabled && <span className="text-muted-foreground"> · {swt("interface.m1069")}</span>}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+            <p className="text-muted-foreground text-xs">{swt("english.e196")}</p>
+          </div>
         </div>
         <DialogFooter>
           <Button onClick={create} disabled={!canCreate}>
@@ -209,13 +368,25 @@ function CreateAgentDialog({ onCreated }: { onCreated: (key: string) => void }) 
 
 export default function AgentsPage() {
   "use no memo";
-  const { t: swt, locale: swLocale } = useI18n();
+  const { t: swt } = useI18n();
 
   const [agents, setAgents] = React.useState<Agent[]>([]);
+  const [offline, setOffline] = React.useState(false);
   const [editKey, setEditKey] = React.useState<string | null>(null);
 
   const reload = React.useCallback(() => {
-    api.agents().then(setAgents).catch(() => setAgents([]));
+    api
+      .agents()
+      .then((list) => {
+        setAgents(list);
+        setOffline(false);
+      })
+      .catch(() => {
+        // Unreachable platform API is NOT an empty store: say so instead of
+        // silently rendering "(no agents)".
+        setAgents([]);
+        setOffline(true);
+      });
   }, []);
   React.useEffect(() => {
     reload();
@@ -245,7 +416,12 @@ export default function AgentsPage() {
           <CardDescription>{swt("interface.m0199")}{" "}{agents.length} {swt("interface.m0862")}</CardDescription>
         </CardHeader>
         <CardContent>
-          {agents.length === 0 ? (
+          {offline ? (
+            <div className="flex flex-col items-center gap-2 py-6 text-center">
+              <p className="text-sm font-medium">{swt("english.e197")}</p>
+              <p className="text-muted-foreground max-w-md text-sm">{swt("english.e198")}</p>
+            </div>
+          ) : agents.length === 0 ? (
             <p className="text-muted-foreground py-6 text-center text-sm">{swt("interface.m1149")}</p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

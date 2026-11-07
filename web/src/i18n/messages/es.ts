@@ -236,7 +236,16 @@ export const english: Record<keyof typeof englishSource, string> = {
   "e188": "Predeterminado",
   "e189": "Brutalista",
   "e190": "Soft Pop",
-  "e191": "Mandarina"
+  "e191": "Mandarina",
+  "e192": "Prompt de sistema",
+  "e193": "Personalidad e instrucciones de operación para este agente",
+  "e194": "Herramientas concedidas",
+  "e195": "{p0} seleccionadas",
+  "e196": "Vincula este agente a herramientas ahora; la pestaña Tools puede cambiarlo más tarde.",
+  "e197": "Backend de la plataforma sin conexión",
+  "e198": "La API de agentes no responde. Inicia el servidor scopeweaver y recarga.",
+  "e199": "Agente \"{p0}\" creado, pero algunas opciones fallaron: {p1}",
+  "e200": "Déjalo vacío para conservar el prompt inicial"
 };
 import type { en as interfaceSource } from './interface.ts';
 const interfaceMessages: Record<keyof typeof interfaceSource, string> = {

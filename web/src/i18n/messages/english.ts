@@ -107,7 +107,16 @@ export const en = {
   "e188": "Default",
   "e189": "Brutalist",
   "e190": "Soft Pop",
-  "e191": "Tangerine"
+  "e191": "Tangerine",
+  "e192": "System prompt",
+  "e193": "Persona and operating instructions for this agent",
+  "e194": "Tool grants",
+  "e195": "{p0} selected",
+  "e196": "Bind this agent to tools now; the Tools tab can change this later.",
+  "e197": "Platform backend offline",
+  "e198": "The agents API is unreachable. Start the scopeweaver server and reload.",
+  "e199": "Agent \"{p0}\" created, but some settings failed: {p1}",
+  "e200": "Leave empty to keep the starter prompt"
 };
 export const ko: Record<keyof typeof en, string> = {
   "e002": "출시 예정",
@@ -217,5 +226,14 @@ export const ko: Record<keyof typeof en, string> = {
   "e188": "기본값",
   "e189": "브루탈리스트",
   "e190": "소프트 팝",
-  "e191": "탠저린"
+  "e191": "탠저린",
+  "e192": "시스템 프롬프트",
+  "e193": "이 에이전트의 페르소나와 운영 지침",
+  "e194": "도구 권한",
+  "e195": "{p0}개 선택됨",
+  "e196": "지금 에이전트에 도구를 바인딩합니다. 이후 도구 탭에서 변경할 수 있습니다.",
+  "e197": "플랫폼 백엔드 오프라인",
+  "e198": "에이전트 API에 연결할 수 없습니다. scopeweaver 서버를 시작하고 새로고침하세요.",
+  "e199": "에이전트 \"{p0}\" 생성됨, 일부 설정 실패: {p1}",
+  "e200": "비워 두면 기본 프롬프트 유지"
 };

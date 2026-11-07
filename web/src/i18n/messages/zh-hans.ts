@@ -201,6 +201,15 @@ export const english: Record<keyof typeof englishSource, string> = {
   e189: "粗野主义",
   e190: "柔和流行",
   e191: "橘色",
+  e192: "系统提示词",
+  e193: "此智能体的角色设定与运行指令",
+  e194: "工具授权",
+  e195: "已选 {p0} 项",
+  e196: "现在为该智能体绑定工具；之后可在 Tools 标签页修改。",
+  e197: "平台后端离线",
+  e198: "无法访问智能体 API。请启动 scopeweaver 服务器后刷新。",
+  e199: "智能体「{p0}」已创建，但部分设置失败：{p1}",
+  e200: "留空则保留初始提示词",
 };
 
 import type { en as interfaceSource } from "./interface.ts";
