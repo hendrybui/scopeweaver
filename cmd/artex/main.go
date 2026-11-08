@@ -131,7 +131,7 @@ func run() (code int) {
 	}()
 	served := make(chan error, 1)
 	go func() {
-		log.Printf("ScopeWeaver %s backend listening on %s (data=%s, workers=%d)", version, *addr, *dataDir, mgr.Workers())
+		log.Printf("APD %s backend listening on %s (data=%s, workers=%d)", version, *addr, *dataDir, mgr.Workers())
 		served <- httpSrv.ListenAndServe()
 	}()
 
