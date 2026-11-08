@@ -1,0 +1,15 @@
+FILE FETCH
+----------
+<?php
+// CANARY 3 — path traversal / arbitrary file read. Ground truth: ../../../../etc/passwd readable.
+// VULN: unsanitized $_GET['name'] joined onto a base dir.
+$name = $_GET['name'] ?? 'note.txt';
+$path = '/var/www/html/data/' . $name;
+header('Content-Type: text/plain; charset=utf-8');
+echo "FILE FETCH\n----------\n";
+if (is_readable($path)) {
+    echo readfile($path);
+} else {
+    echo "not found: " . htmlspecialchars($name) . "\n";
+}
+446

@@ -1,0 +1,12 @@
+HTTP/1.1 200 OK
+Date: Fri, 06 Nov 2026 12:46:42 GMT
+Server: Apache/2.4.69 (Debian)
+X-Powered-By: PHP/8.2.35
+Vary: Accept-Encoding
+Content-Length: 108
+Content-Type: text/plain; charset=utf-8
+
+LOGIN OK
+WELCOME-ADMIN-FLAG role=S3cretCanary!:admin
+row: 1 admin S3cretCanary!:admin
+row: 2 guest guest:ro

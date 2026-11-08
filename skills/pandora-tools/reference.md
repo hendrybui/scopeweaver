@@ -39,7 +39,9 @@ for n in $(...); do command -v "$n" >/dev/null && echo "$n"; done   # names that
 
 | Symptom | Cause | Do instead |
 | --- | --- | --- |
-| `sqlmap` → `No module named 'sqlmap'` | its wrapper expects the package on `sys.path`, and the file itself resolves through a symlink | `mcp__bolt__sqlmap_*` |
+| `sqlmap` → `No module named 'sqlmap'` | its wrapper expects the package on `sys.path`, and the file itself resolves through a symlink | `/usr/local/bin/sqlmap-fixed` (runs `/usr/share/sqlmap/sqlmap.py`) or `mcp__bolt__sqlmap_*` |
+| `enum4linux-ng` → `No module named 'impacket'` | image python lacks impacket | `/usr/local/bin/enum4linux-ng-fixed` (adds `/app/data/sessions/conv-6/pylibs`) |
+| `responder` → `No module named 'netifaces'` | image python lacks netifaces; the shim home is read-only | `/usr/local/bin/responder-fixed` (host netifaces from `/host/usrlib/python3/dist-packages` + aioquic) |
 | `symbol lookup error: ... GLIBC_PRIVATE` | a host library won the cache before the image's own | confirm `/etc/ld.so.conf.d/00-img-libs.conf` sorts first and `ldconfig` ran at start |
 | `error while loading shared libraries: <lib>` on a host binary | library lives in a host tree not covered by the cache | add its directory to `10-host-libs.conf` |
 | A name missing entirely | lives only inside another container, or is a GUI tool needing X | check `mcp__bolt__*` first |
@@ -71,6 +73,6 @@ The 9router client key lives in `~/.9router/db/data.sqlite` (`apiKeys`).
 ## Rules
 
 - Mounts are at parity because the entries are shims: never copy or relocate one.
-- Only `/mnt/Pandora` and the Docker socket are writable.
+- `/mnt/Pandora`, `/var/run/docker.sock`, `/app/data` and `/app/skills` are writable; `/host`, `/opt` and the shim homes are read-only.
 - `docker` here talks to the **host** daemon: every path passed on the command line must be a host path.
 - Writes under `/mnt/Pandora` are root-owned on the host.

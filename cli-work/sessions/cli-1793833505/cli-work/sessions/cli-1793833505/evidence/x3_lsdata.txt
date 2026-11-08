@@ -1,0 +1,19 @@
+=== X3: ls data dir ===
+FILE VIEWER
+----------
+/var/www/html:
+total 36
+drwxrwxrwt 1 www-data www-data 4096 Nov  4 21:47 .
+drwxr-xr-x 1 root     root     4096 Oct 28 01:28 ..
+-rw-rw-r-- 1 www-data www-data  354 Nov  4 21:46 cmd.php
+drwxrwxr-x 1 www-data www-data 4096 Nov  4 22:12 data
+-rw-rw-r-- 1 www-data www-data  446 Nov  4 21:43 file.php
+-rw-rw-r-- 1 www-data www-data  741 Nov  4 21:43 index.php
+-rw-rw-r-- 1 www-data www-data 1268 Nov  4 21:43 login.php
+
+/var/www/html/data:
+total 24
+drwxrwxr-x 1 www-data www-data 4096 Nov  4 22:12 .
+drwxrwxrwt 1 www-data www-data 4096 Nov  4 21:47 ..
+-rw-r--r-- 1 www-data www-data 8192 Nov  4 22:12 canary.sqlite
+-rw-rw-r-- 1 www-data www-data   97 Nov  4 21:43 note.txt

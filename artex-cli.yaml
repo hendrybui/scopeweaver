@@ -1,0 +1,7 @@
+base_url: http://127.0.0.1:20129/v1
+api_key: "sk-d480e93d0267bfd9-o56t6n-eaf26a90"
+model: glm/glm-5.3-flash
+window_k: 128
+stream: true
+max_minutes: 15
+work_dir: ./cli-work

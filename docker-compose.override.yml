@@ -9,8 +9,18 @@
 # "binary" is a shim, a symlink or a venv entry point whose shebang or target is
 # an absolute host path, so copying or relocating one breaks it.
 services:
+  postgres:
+    # Native (out-of-container) app connects over loopback
+    # 5433: host's own postgres already owns 5432
+    ports:
+      - "127.0.0.1:5433:5432"
   scopeweaver:
     environment:
+      # Storm-Breaker is a sibling service on this same compose network, so
+      # Artex talks to it by SERVICE NAME and never through a host port.
+      # The service publishes 2525 on loopback for the operator only; the
+      # in-network path is what the agent uses.
+      STORM_API: http://storm:2525
       # Host shims lead, then the /opt tool entry points that are plain scripts
       # (they need no install), then the image's own paths behind them.
       PATH: /host/bin:/home/neocyan/.local/bin:/opt/metasploit-framework/bin:/opt/ZAP_2.16.1:/opt/testssl.sh:/opt/enum4linux-ng:/opt/beef:/opt/spiderfoot:/opt/nosqlmap:/opt/Responder:/opt/jwt_tool:/opt/docker-bench-security:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/host/usrbin:/host/usrsbin:/sbin:/bin
@@ -105,7 +115,19 @@ services:
     volumes:
       - /mnt/Pandora/owncloud/Storm-Breaker/storm-web:/app/storm-web   # keep Settings.json + sqlite DB on disk
     ports:
-      - "2525:2525"
+      # The panel is operator-only: loopback publish.  The cloudflared tunnel
+      # (cloudflared-storm.service -> http://127.0.0.1:2525) is the only
+      # public path in, and it is host-side, so it still resolves.
+      - "127.0.0.1:2525:2525"
+      # Listener window (Settings.json listener_port_min/max).  A listener bound
+      # to an ephemeral in-container port is unreachable from the host, so the
+      # band is published 1:1 and the service only allocates inside it.
+      # This band is LAN-facing on purpose (targets must be able to call back),
+      # so it is published on 0.0.0.0 and fenced by the DOCKER-USER rules
+      # (see the storm-breaker port-scope notes) instead of ufw, whose rules
+      # sit behind docker's own ACCEPT.  Keep it in sync with
+      # Settings.json listener_port_min/max.
+      - "7450-7469:7450-7469"
     healthcheck:
       test: ["CMD-SHELL", "python3 -c \"import urllib.request as u; u.urlopen('http://127.0.0.1:2525/login').read()\""]
       interval: 30s

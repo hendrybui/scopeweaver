@@ -1,6 +1,7 @@
 ---
 name: pandora-tools
 description: Use when a task needs a tool that lives on the host — the host tool tree under /mnt/Pandora, the host shim homes (/host/bin, ~/.local/bin, /opt, pipx venvs) or the host MCP gateway (mcp__bolt__*). Covers where things are, how to run them, and what still needs a runtime.
+mcps: ScopeSentry, browser, bolt, hexstrike
 ---
 
 # Host tooling
@@ -54,15 +55,28 @@ If a name is missing locally but covered above, call the `mcp__bolt__*` tool ins
 
 ## 4. What still needs a runtime
 
-- No `docker` CLI and no Docker socket → the ~24 host Dockerfiles and 18 compose stacks (`Workshop/HexSecTempest`, `Web_image/*`, …) cannot be started from inside.
-- No `java` → ghidra, ZAP, burpsuite. No `ruby` → metasploit, beef, evil-winrm, wpscan.
-- A wrapper around one of those fails with a missing interpreter: report it, do not retry blindly.
+Verified inside this container on 2026-11-01:
+
+- `docker` CLI 29.1.3 and `/var/run/docker.sock` are present; `docker ps` sees 8 containers. The host Dockerfiles/compose stacks can be driven, but every path passed to Docker must exist on the host, not here.
+- Java 21 (`java -version`) and Ruby 3.3.8 (`ruby -v`) are present. `zap.sh -version` (2.16.1) and `msfconsole --version` (6.5.9-dev) execute. Ghidra/burpsuite are wrapper scripts; their GUI/headless behaviour was not exercised.
+- Still broken locally: the `sqlmap`, `enum4linux-ng` and `responder` shims (missing Python packages). Use the fixed wrappers below or the bolt/hexstrike equivalents.
+- `error while loading shared libraries` still means the binary needs an unmounted host library — use the MCP equivalent or report it.
+
+### Fixed local wrappers (installed 2026-11-01)
+
+| Use | Instead of | Why it works |
+| --- | --- | --- |
+| `sqlmap-fixed` | `sqlmap` | runs `python3 /usr/share/sqlmap/sqlmap.py` directly, bypassing the broken package-import shim |
+| `enum4linux-ng-fixed` | `enum4linux-ng` | `PYTHONPATH=/app/data/sessions/conv-6/pylibs` supplies impacket/ldap3 |
+| `responder-fixed` | `responder` | runs a writable copy in `/app/data/sessions/conv-6/vendor/Responder` with host netifaces (`/host/usrlib/python3/dist-packages`) and aioquic |
+
+These wrappers and their library paths are session-scoped (`conv-6`); if that directory is removed, fall back to `mcp__bolt__*` / `mcp__hexstrike__*`.
 
 ## 5. Traps
 
 - This container runs as root, so writes under `/mnt/Pandora` land root-owned on the host. Prefer `/mnt/Pandora/Hack/results/` or `/app/data`.
 - `/mnt/Pandora/docker-lib` is the host's Docker data root: keep searches scoped to a subdirectory.
-- Everything except `/mnt/Pandora` is read-only.
+- `/host`, `/opt` and the shim homes are read-only; `/mnt/Pandora`, `/var/run/docker.sock`, `/app/data` and `/app/skills` are writable. Never edit `/host` shims in place.
 - `error while loading shared libraries` means the binary needs a host library that is not mounted — use the MCP equivalent or report it.
 
 ## 6. Full inventory

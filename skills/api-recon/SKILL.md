@@ -1,6 +1,7 @@
 ---
 name: api-recon
 description: Use to inventory a website's API interfaces within authorized scope.
+mcps: ScopeSentry, browser, bolt, hexstrike
 ---
 
 # API Recon (frontend interface discovery)

@@ -1,0 +1,32 @@
+FILE FETCH
+----------
+<?php
+// CANARY 2 — SQL injection login bypass. Ground truth: user "admin'--" logs in as admin.
+// VULN: string-concatenated query, no prepared statement.
+$dbfile = '/var/www/html/data/canary.sqlite';
+if (!file_exists($dbfile)) {
+    $pdo = new PDO('sqlite:' . $dbfile);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, user TEXT, pass TEXT, role TEXT)');
+    $pdo->exec("INSERT INTO users (user, pass, role) VALUES ('admin', 'S3cretCanary!', 'admin'), ('guest', 'guest', 'ro')");
+}
+$pdo = new PDO('sqlite:' . $dbfile);
+$user = $_POST['user'] ?? '';
+$pass = $_POST['pass'] ?? '';
+$q = "SELECT id, user, role FROM users WHERE user='" . $user . "' AND pass='" . $pass . "'";
+try {
+    $rows = $pdo->query($q)->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $e) {
+    header('Content-Type: text/plain; charset=utf-8');
+    echo "LOGIN ERROR: " . $e->getMessage() . "\n";
+    exit;
+}
+header('Content-Type: text/plain; charset=utf-8');
+if (count($rows) > 0) {
+    echo "LOGIN OK\n";
+    echo "WELCOME-" . strtoupper($rows[0]['user']) . "-FLAG role=" . $rows[0]['role'] . "\n";
+    foreach ($rows as $r) echo "row: {$r['id']} {$r['user']} {$r['role']}\n";
+} else {
+    echo "LOGIN FAILED\n";
+}
+1268

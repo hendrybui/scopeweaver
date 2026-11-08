@@ -1,0 +1,12 @@
+HTTP/1.1 200 OK
+Date: Fri, 06 Nov 2026 12:46:42 GMT
+Server: Apache/2.4.69 (Debian)
+X-Powered-By: PHP/8.2.35
+Vary: Accept-Encoding
+Content-Length: 192
+Content-Type: text/plain; charset=utf-8
+
+FILE VIEWER
+----------
+uid=33(www-data) gid=33(www-data) groups=33(www-data)
+Linux 218b025e701a 6.8.0-100-generic #100-Ubuntu SMP PREEMPT_DYNAMIC Tue Jan 13 16:40:06 UTC 2026 x86_64 GNU/Linux

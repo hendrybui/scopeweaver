@@ -1,0 +1,4 @@
+=== C: control, valid creds ===
+LOGIN OK
+WELCOME-ADMIN-FLAG role=admin
+row: 1 admin admin

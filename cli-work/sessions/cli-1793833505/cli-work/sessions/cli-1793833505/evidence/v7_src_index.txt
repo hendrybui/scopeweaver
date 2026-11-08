@@ -1,0 +1,17 @@
+FILE FETCH
+----------
+<?php
+// CANARY HARNESS — deliberately vulnerable fixture. Operator-owned lab target ONLY.
+// Three canaries, each with a FIXED ground truth documented in GROUND-TRUTH.md.
+header('Content-Type: text/plain; charset=utf-8');
+echo "CANARY HARNESS v1 — lab fixture. Endpoints: /cmd.php /login.php /file.php\n";
+
+// init sqlite db once
+$dbfile = '/var/www/html/data/canary.sqlite';
+if (!file_exists($dbfile)) {
+    $pdo = new PDO('sqlite:' . $dbfile);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, user TEXT, pass TEXT, role TEXT)');
+    $pdo->exec("INSERT INTO users (user, pass, role) VALUES ('admin', 'S3cretCanary!', 'admin'), ('guest', 'guest', 'ro')");
+}
+741

@@ -1,0 +1,11 @@
+FILE FETCH
+----------
+<?php
+// CANARY 1 — OS command injection. Ground truth: payload "; id" executes as www-data.
+// VULN: unsanitized $_GET['file'] concatenated into shell command.
+$f = $_GET['file'] ?? 'note.txt';
+$out = shell_exec('cat /var/www/html/data/' . $f . ' 2>&1');
+header('Content-Type: text/plain; charset=utf-8');
+echo "FILE VIEWER\n----------\n";
+echo $out;
+354

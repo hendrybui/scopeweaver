@@ -1,0 +1,12 @@
+FILE VIEWER
+----------
+Linux 4027fd295292 6.8.0-100-generic #100-Ubuntu SMP PREEMPT_DYNAMIC Tue Jan 13 16:40:06 UTC 2026 x86_64 GNU/Linux
+4027fd295292
+total 36
+drwxrwxrwt 1 www-data www-data 4096 Nov  4 21:47 .
+drwxr-xr-x 1 root     root     4096 Oct 28 01:28 ..
+-rw-rw-r-- 1 www-data www-data  354 Nov  4 21:46 cmd.php
+drwxrwxr-x 1 www-data www-data 4096 Nov  4 22:12 data
+-rw-rw-r-- 1 www-data www-data  446 Nov  4 21:43 file.php
+-rw-rw-r-- 1 www-data www-data  741 Nov  4 21:43 index.php
+-rw-rw-r-- 1 www-data www-data 1268 Nov  4 21:43 login.php

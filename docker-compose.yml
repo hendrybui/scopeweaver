@@ -65,7 +65,10 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "8787:8787"
+      # Loopback only.  This container mounts the host docker socket, so it is
+      # root-equivalent over the host; a 0.0.0.0 publish would put that on the
+      # LAN.  Reach it over SSH/tailnet, not a bound port.
+      - "127.0.0.1:8787:8787"
       - "127.0.0.1:8788:8788"
     volumes:
       - ./data:/app/data
